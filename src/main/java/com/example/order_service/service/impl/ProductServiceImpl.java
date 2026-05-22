@@ -1,23 +1,21 @@
 package com.example.order_service.service.impl;
 
 import com.example.order_service.entity.Product;
-import com.example.order_service.entity.dto.request.CreateProductRequest;
+import com.example.order_service.dto.request.CreateProductRequest;
+import com.example.order_service.exception.ErrorCode;
+import com.example.order_service.exception.ResourceNotFoundException;
 import com.example.order_service.repository.ProductRepository;
 import com.example.order_service.service.ProductService;
-import org.springframework.http.HttpStatus;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
-
-    public ProductServiceImpl(ProductRepository productRepository) {
-        this.productRepository = productRepository;
-    }
 
     @Override
     public Product createProduct(CreateProductRequest request) {
@@ -33,7 +31,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public Product getProduct(Long id) {
         return productRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND, "Product", id));
     }
 
     @Override

@@ -1,6 +1,6 @@
 package com.example.order_service.service;
 
-import com.example.order_service.entity.dto.request.CreateOrderRequest;
+import com.example.order_service.dto.request.CreateOrderRequest;
 import com.example.order_service.entity.Order;
 
 import java.util.List;

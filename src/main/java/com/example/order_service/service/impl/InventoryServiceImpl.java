@@ -1,58 +1,48 @@
 package com.example.order_service.service.impl;
 
 import com.example.order_service.entity.Product;
+import com.example.order_service.entity.InventoryReservation;
 import com.example.order_service.event.InventoryResultEvent;
 import com.example.order_service.event.OrderCreatedEvent;
+import com.example.order_service.mapper.InventoryResultMapper;
 import com.example.order_service.repository.ProductRepository;
+import com.example.order_service.repository.InventoryReservationRepository;
 import com.example.order_service.service.InventoryService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@RequiredArgsConstructor
 public class InventoryServiceImpl implements InventoryService {
 
     private final ProductRepository productRepository;
-
-    public InventoryServiceImpl(ProductRepository productRepository) {
-        this.productRepository = productRepository;
-    }
+    private final InventoryReservationRepository inventoryReservationRepository;
+    private final InventoryResultMapper inventoryResultMapper;
 
     @Override
     @Transactional
     public InventoryResultEvent reserveInventory(OrderCreatedEvent event, String processedBy) {
+        InventoryReservation reservation = inventoryReservationRepository.findById(event.getOrderId())
+                .orElse(null);
+        if (reservation != null) {
+            return inventoryResultMapper.toResultEvent(reservation);
+        }
+
         Product product = productRepository.findByIdForUpdate(event.getProductId()).orElse(null);
 
+        InventoryResultEvent result;
         if (product == null) {
-            return rejected(event, "Product not found", processedBy);
+            result = inventoryResultMapper.rejected(event, "Product not found", processedBy);
+        } else if (product.getStockQuantity() < event.getQuantity()) {
+            result = inventoryResultMapper.rejected(event, "Not enough stock", processedBy);
+        } else {
+            product.setStockQuantity(product.getStockQuantity() - event.getQuantity());
+            productRepository.save(product);
+            result = inventoryResultMapper.reserved(event, processedBy);
         }
 
-        if (product.getStockQuantity() < event.getQuantity()) {
-            return rejected(event, "Not enough stock", processedBy);
-        }
-
-        product.setStockQuantity(product.getStockQuantity() - event.getQuantity());
-        productRepository.save(product);
-
-        return InventoryResultEvent.builder()
-                .orderId(event.getOrderId())
-                .productId(event.getProductId())
-                .productName(event.getProductName())
-                .requestedQuantity(event.getQuantity())
-                .reserved(true)
-                .reason("Stock reserved")
-                .processedByInstance(processedBy)
-                .build();
-    }
-
-    private InventoryResultEvent rejected(OrderCreatedEvent event, String reason, String processedBy) {
-        return InventoryResultEvent.builder()
-                .orderId(event.getOrderId())
-                .productId(event.getProductId())
-                .productName(event.getProductName())
-                .requestedQuantity(event.getQuantity())
-                .reserved(false)
-                .reason(reason)
-                .processedByInstance(processedBy)
-                .build();
+        inventoryReservationRepository.save(inventoryResultMapper.toReservation(result));
+        return result;
     }
 }

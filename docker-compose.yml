@@ -1,26 +1,26 @@
 services:
 
-  # ── MySQL ──────────────────────────────
+  # MySQL
   mysql:
     image: mysql:8.0
     container_name: mysql
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root123
-      MYSQL_DATABASE: orderdb
-      MYSQL_USER: appuser
-      MYSQL_PASSWORD: apppass
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
-      - "3306:3306"
+      - "${MYSQL_PORT}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot123"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # ── Zookeeper ──────────────────────────
+  # Zookeeper
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
     container_name: zookeeper
@@ -28,14 +28,14 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
 
-  # ── Kafka ──────────────────────────────
+  # Kafka
   kafka:
     image: confluentinc/cp-kafka:7.4.0
     container_name: kafka
     depends_on:
       - zookeeper
     ports:
-      - "29092:29092"
+      - "${KAFKA_EXTERNAL_PORT}:29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -44,27 +44,27 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     healthcheck:
       test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
       interval: 10s
       timeout: 10s
       retries: 10
 
-  # ── Kafka UI (xem message trực quan) ───
+  # Kafka UI
   kafka-ui:
-    image: provectuslabs/kafka-ui:latest
+    image: provectuslabs/kafka-ui:v0.7.2
     container_name: kafka-ui
     depends_on:
       kafka:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      - "${KAFKA_UI_PORT}:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
 
-  # ── App instance 1 ─────────────────────
+  # App instance 1
   app1:
     build: .
     container_name: app1
@@ -74,14 +74,14 @@ services:
       kafka:
         condition: service_healthy
     environment:
-      SERVER_PORT: 8081
+      SERVER_PORT: ${APP1_PORT}
       INSTANCE_NAME: app1
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/orderdb?allowPublicKeyRetrieval=true&useSSL=false
-      SPRING_DATASOURCE_USERNAME: appuser
-      SPRING_DATASOURCE_PASSWORD: apppass
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?allowPublicKeyRetrieval=true&useSSL=false
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
-      - "8081:8081"
+      - "${APP1_PORT}:${APP1_PORT}"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:$${SERVER_PORT}/actuator/health || exit 1"]
       interval: 10s
@@ -89,7 +89,7 @@ services:
       retries: 10
       start_period: 30s
 
-  # ── App instance 2 ─────────────────────
+  # App instance 2
   app2:
     build: .
     container_name: app2
@@ -99,14 +99,14 @@ services:
       kafka:
         condition: service_healthy
     environment:
-      SERVER_PORT: 8082
+      SERVER_PORT: ${APP2_PORT}
       INSTANCE_NAME: app2
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/orderdb?allowPublicKeyRetrieval=true&useSSL=false
-      SPRING_DATASOURCE_USERNAME: appuser
-      SPRING_DATASOURCE_PASSWORD: apppass
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?allowPublicKeyRetrieval=true&useSSL=false
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
-      - "8082:8082"
+      - "${APP2_PORT}:${APP2_PORT}"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:$${SERVER_PORT}/actuator/health || exit 1"]
       interval: 10s
@@ -114,7 +114,7 @@ services:
       retries: 10
       start_period: 30s
 
-  # ── Nginx Load Balancer ─────────────────
+  # Nginx load balancer
   nginx:
     image: nginx:alpine
     container_name: nginx
@@ -124,7 +124,7 @@ services:
       app2:
         condition: service_healthy
     ports:
-      - "80:80"
+      - "${NGINX_PORT}:80"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
 

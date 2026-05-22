@@ -1,25 +1,32 @@
 package com.example.order_service.kafka.publisher;
 
+import com.example.order_service.config.AppProperties;
 import com.example.order_service.event.InventoryResultEvent;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class InventoryEventPublisher {
 
-    private final KafkaTemplate<String, Object> kafkaTemplate;
-    private final String inventoryResultTopic;
+    private static final Logger log = LoggerFactory.getLogger(InventoryEventPublisher.class);
 
-    public InventoryEventPublisher(
-            KafkaTemplate<String, Object> kafkaTemplate,
-            @Value("${app.kafka.inventory-result-topic}") String inventoryResultTopic
-    ) {
-        this.kafkaTemplate = kafkaTemplate;
-        this.inventoryResultTopic = inventoryResultTopic;
-    }
+    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final AppProperties appProperties;
 
     public void publishInventoryResult(InventoryResultEvent event) {
-        kafkaTemplate.send(inventoryResultTopic, String.valueOf(event.getOrderId()), event);
+        String key = String.valueOf(event.getOrderId());
+        String topic = appProperties.getInventoryResultTopic();
+        kafkaTemplate.send(topic, key, event)
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        log.error("Failed to publish inventory-result event. orderId={}", event.getOrderId(), ex);
+                    } else {
+                        log.info("Published inventory-result event. topic={}, key={}", topic, key);
+                    }
+                });
     }
 }
