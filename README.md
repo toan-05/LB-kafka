@@ -61,10 +61,18 @@ Useful endpoints:
 GET /api/v1/products
 POST /api/v1/products
 GET /api/v1/products/{id}
+PUT /api/v1/products/{id}
+DELETE /api/v1/products/{id}
 
 GET /api/v1/orders
 POST /api/v1/orders
 GET /api/v1/orders/{id}
+PUT /api/v1/orders/{id}
+DELETE /api/v1/orders/{id}
+
+GET /api/v1/inventory-reservations
+GET /api/v1/inventory-reservations/{orderId}
+DELETE /api/v1/inventory-reservations/{orderId}
 
 GET /health
 ```

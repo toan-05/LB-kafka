@@ -1,11 +1,15 @@
 package com.example.order_service.service.impl;
 
 import com.example.order_service.entity.InventoryReservation;
+import com.example.order_service.entity.Order;
 import com.example.order_service.entity.Product;
+import com.example.order_service.entity.enums.OrderStatus;
+import com.example.order_service.entity.enums.RecordStatus;
 import com.example.order_service.event.InventoryResultEvent;
 import com.example.order_service.event.OrderCreatedEvent;
 import com.example.order_service.mapper.InventoryResultMapper;
 import com.example.order_service.repository.InventoryReservationRepository;
+import com.example.order_service.repository.OrderRepository;
 import com.example.order_service.repository.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,6 +35,9 @@ class InventoryServiceImplTest {
     @Mock
     private InventoryReservationRepository inventoryReservationRepository;
 
+    @Mock
+    private OrderRepository orderRepository;
+
     private InventoryServiceImpl inventoryService;
 
     @BeforeEach
@@ -38,6 +45,7 @@ class InventoryServiceImplTest {
         inventoryService = new InventoryServiceImpl(
                 productRepository,
                 inventoryReservationRepository,
+                orderRepository,
                 new InventoryResultMapper()
         );
     }
@@ -51,8 +59,10 @@ class InventoryServiceImplTest {
                 .price(BigDecimal.valueOf(99))
                 .stockQuantity(5)
                 .build();
-        when(inventoryReservationRepository.findById(1L)).thenReturn(Optional.empty());
-        when(productRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(product));
+        when(inventoryReservationRepository.findByOrderId(1L)).thenReturn(Optional.empty());
+        when(orderRepository.findByIdAndStatusAndOrderStatus(1L, RecordStatus.ACTIVE, OrderStatus.CREATED))
+                .thenReturn(Optional.of(Order.builder().id(1L).orderStatus(OrderStatus.CREATED).build()));
+        when(productRepository.findByIdForUpdate(10L, RecordStatus.ACTIVE)).thenReturn(Optional.of(product));
 
         InventoryResultEvent result = inventoryService.reserveInventory(event, "app1");
 
@@ -78,14 +88,27 @@ class InventoryServiceImplTest {
                 .reason("Stock reserved")
                 .processedByInstance("app1")
                 .build();
-        when(inventoryReservationRepository.findById(1L)).thenReturn(Optional.of(reservation));
+        when(inventoryReservationRepository.findByOrderId(1L)).thenReturn(Optional.of(reservation));
 
         InventoryResultEvent result = inventoryService.reserveInventory(orderCreatedEvent(), "app2");
 
         assertThat(result.isReserved()).isTrue();
         assertThat(result.getProcessedByInstance()).isEqualTo("app1");
-        verify(productRepository, never()).findByIdForUpdate(10L);
+        verify(productRepository, never()).findByIdForUpdate(10L, RecordStatus.ACTIVE);
         verify(productRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void reserveInventoryRejectsWhenOrderIsNotReservable() {
+        when(inventoryReservationRepository.findByOrderId(1L)).thenReturn(Optional.empty());
+        when(orderRepository.findByIdAndStatusAndOrderStatus(1L, RecordStatus.ACTIVE, OrderStatus.CREATED))
+                .thenReturn(Optional.empty());
+
+        InventoryResultEvent result = inventoryService.reserveInventory(orderCreatedEvent(), "app1");
+
+        assertThat(result.isReserved()).isFalse();
+        assertThat(result.getReason()).isEqualTo("Order is not available for inventory reservation");
+        verify(productRepository, never()).findByIdForUpdate(10L, RecordStatus.ACTIVE);
     }
 
     private OrderCreatedEvent orderCreatedEvent() {

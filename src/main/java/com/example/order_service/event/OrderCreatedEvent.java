@@ -23,7 +23,7 @@ public class OrderCreatedEvent {
     private Integer quantity;
     private BigDecimal unitPrice;
     private BigDecimal totalAmount;
-    private OrderStatus status;
+    private OrderStatus orderStatus;
     private String createdByInstance;
 
     public static OrderCreatedEvent from(Order order) {
@@ -34,7 +34,7 @@ public class OrderCreatedEvent {
                 .quantity(order.getQuantity())
                 .unitPrice(order.getUnitPrice())
                 .totalAmount(order.getTotalAmount())
-                .status(order.getStatus())
+                .orderStatus(order.getOrderStatus())
                 .createdByInstance(order.getHandledBy())
                 .build();
     }

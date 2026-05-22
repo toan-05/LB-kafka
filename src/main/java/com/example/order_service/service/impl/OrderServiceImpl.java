@@ -1,21 +1,26 @@
 package com.example.order_service.service.impl;
 
 import com.example.order_service.config.AppProperties;
+import com.example.order_service.dto.request.UpdateOrderRequest;
 import com.example.order_service.entity.Order;
 import com.example.order_service.entity.Product;
 import com.example.order_service.dto.request.CreateOrderRequest;
 import com.example.order_service.entity.enums.OrderStatus;
+import com.example.order_service.entity.enums.RecordStatus;
 import com.example.order_service.event.OrderCreatedEvent;
+import com.example.order_service.exception.BusinessException;
 import com.example.order_service.exception.ErrorCode;
 import com.example.order_service.exception.ResourceNotFoundException;
 import com.example.order_service.kafka.publisher.OrderEventPublisher;
 import com.example.order_service.mapper.OrderMapper;
+import com.example.order_service.repository.InventoryReservationRepository;
 import com.example.order_service.repository.OrderRepository;
 import com.example.order_service.service.OrderService;
 import com.example.order_service.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -27,6 +32,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderEventPublisher orderEventPublisher;
     private final OrderMapper orderMapper;
     private final AppProperties appProperties;
+    private final InventoryReservationRepository inventoryReservationRepository;
 
     @Override
     public Order createOrder(CreateOrderRequest request) {
@@ -46,13 +52,37 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public List<Order> getOrders() {
-        return orderRepository.findAll();
+        return orderRepository.findAllByStatus(RecordStatus.ACTIVE);
+    }
+
+    @Override
+    public Order updateOrder(Long id, UpdateOrderRequest request) {
+        Order order = findOrder(id);
+        ensureOrderIsEditable(order, ErrorCode.ORDER_UPDATE_NOT_ALLOWED, "Order can no longer be updated: " + id);
+
+        Product product = productService.getProduct(request.productId());
+        order.setProductId(product.getId());
+        order.setProductName(product.getName());
+        order.setQuantity(request.quantity());
+        order.setUnitPrice(product.getPrice());
+        order.setTotalAmount(product.getPrice().multiply(BigDecimal.valueOf(request.quantity())));
+        order.setStatusReason("Order updated");
+
+        return orderRepository.save(order);
+    }
+
+    @Override
+    public void deleteOrder(Long id) {
+        Order order = findOrder(id);
+        ensureOrderIsEditable(order, ErrorCode.ORDER_DELETE_NOT_ALLOWED, "Order can no longer be deleted: " + id);
+        order.markDeleted();
+        orderRepository.save(order);
     }
 
     @Override
     public Order markInventoryReserved(Long orderId, String processedBy) {
         Order order = findOrder(orderId);
-        order.setStatus(OrderStatus.INVENTORY_RESERVED);
+        order.setOrderStatus(OrderStatus.INVENTORY_RESERVED);
         order.setStatusReason("Stock reserved");
         order.setHandledBy(order.getHandledBy() + " | inventory:" + processedBy);
         return orderRepository.save(order);
@@ -61,14 +91,21 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public Order markInventoryRejected(Long orderId, String reason, String processedBy) {
         Order order = findOrder(orderId);
-        order.setStatus(OrderStatus.INVENTORY_REJECTED);
+        order.setOrderStatus(OrderStatus.INVENTORY_REJECTED);
         order.setStatusReason(reason);
         order.setHandledBy(order.getHandledBy() + " | inventory:" + processedBy);
         return orderRepository.save(order);
     }
 
     private Order findOrder(Long id) {
-        return orderRepository.findById(id)
+        return orderRepository.findByIdAndStatus(id, RecordStatus.ACTIVE)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ORDER_NOT_FOUND, "Order", id));
+    }
+
+    private void ensureOrderIsEditable(Order order, ErrorCode errorCode, String message) {
+        boolean hasReservation = inventoryReservationRepository.existsByOrderId(order.getId());
+        if (order.getOrderStatus() != OrderStatus.CREATED || hasReservation) {
+            throw new BusinessException(errorCode, message);
+        }
     }
 }

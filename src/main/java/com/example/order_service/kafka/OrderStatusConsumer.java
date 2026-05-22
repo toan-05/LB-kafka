@@ -2,6 +2,7 @@ package com.example.order_service.kafka;
 
 import com.example.order_service.config.AppProperties;
 import com.example.order_service.event.InventoryResultEvent;
+import com.example.order_service.exception.ResourceNotFoundException;
 import com.example.order_service.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -24,10 +25,15 @@ public class OrderStatusConsumer {
     )
     public void updateOrderStatus(InventoryResultEvent event) {
         String instanceName = appProperties.getInstanceName();
-        if (event.isReserved()) {
-            orderService.markInventoryReserved(event.getOrderId(), instanceName);
-        } else {
-            orderService.markInventoryRejected(event.getOrderId(), event.getReason(), instanceName);
+        try {
+            if (event.isReserved()) {
+                orderService.markInventoryReserved(event.getOrderId(), instanceName);
+            } else {
+                orderService.markInventoryRejected(event.getOrderId(), event.getReason(), instanceName);
+            }
+        } catch (ResourceNotFoundException ex) {
+            log.warn("Skipping inventory result for unavailable order. orderId={}, updater={}", event.getOrderId(), instanceName);
+            return;
         }
 
         log.info(

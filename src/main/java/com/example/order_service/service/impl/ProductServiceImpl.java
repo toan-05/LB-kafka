@@ -1,7 +1,9 @@
 package com.example.order_service.service.impl;
 
 import com.example.order_service.entity.Product;
+import com.example.order_service.entity.enums.RecordStatus;
 import com.example.order_service.dto.request.CreateProductRequest;
+import com.example.order_service.dto.request.UpdateProductRequest;
 import com.example.order_service.exception.ErrorCode;
 import com.example.order_service.exception.ResourceNotFoundException;
 import com.example.order_service.repository.ProductRepository;
@@ -30,12 +32,28 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public Product getProduct(Long id) {
-        return productRepository.findById(id)
+        return productRepository.findByIdAndStatus(id, RecordStatus.ACTIVE)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND, "Product", id));
     }
 
     @Override
     public List<Product> getProducts() {
-        return productRepository.findAll();
+        return productRepository.findAllByStatus(RecordStatus.ACTIVE);
+    }
+
+    @Override
+    public Product updateProduct(Long id, UpdateProductRequest request) {
+        Product product = getProduct(id);
+        product.setName(request.name());
+        product.setPrice(request.price());
+        product.setStockQuantity(request.stockQuantity());
+        return productRepository.save(product);
+    }
+
+    @Override
+    public void deleteProduct(Long id) {
+        Product product = getProduct(id);
+        product.markDeleted();
+        productRepository.save(product);
     }
 }

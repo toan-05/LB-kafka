@@ -18,7 +18,7 @@ public class OrderMapper {
                 .quantity(request.quantity())
                 .unitPrice(product.getPrice())
                 .totalAmount(product.getPrice().multiply(BigDecimal.valueOf(request.quantity())))
-                .status(OrderStatus.CREATED)
+                .orderStatus(OrderStatus.CREATED)
                 .statusReason("Order accepted")
                 .handledBy(handledBy)
                 .build();

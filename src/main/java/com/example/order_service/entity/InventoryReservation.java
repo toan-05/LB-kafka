@@ -1,13 +1,13 @@
 package com.example.order_service.entity;
 
 import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
+import jakarta.persistence.Column;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 @Entity
 @Table(name = "inventory_reservations")
@@ -15,10 +15,10 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class InventoryReservation {
+@SuperBuilder
+public class InventoryReservation extends BaseEntity {
 
-    @Id
+    @Column(nullable = false, unique = true)
     private Long orderId;
 
     private Long productId;
