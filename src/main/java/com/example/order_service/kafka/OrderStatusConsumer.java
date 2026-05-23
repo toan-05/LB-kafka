@@ -25,11 +25,12 @@ public class OrderStatusConsumer {
     )
     public void updateOrderStatus(InventoryResultEvent event) {
         String instanceName = appProperties.getInstanceName();
+        String inventoryProcessor = event.getProcessedByInstance();
         try {
             if (event.isReserved()) {
-                orderService.markInventoryReserved(event.getOrderId(), instanceName);
+                orderService.markInventoryReserved(event.getOrderId(), inventoryProcessor);
             } else {
-                orderService.markInventoryRejected(event.getOrderId(), event.getReason(), instanceName);
+                orderService.markInventoryRejected(event.getOrderId(), event.getReason(), inventoryProcessor);
             }
         } catch (ResourceNotFoundException ex) {
             log.warn("Skipping inventory result for unavailable order. orderId={}, updater={}", event.getOrderId(), instanceName);
@@ -37,9 +38,10 @@ public class OrderStatusConsumer {
         }
 
         log.info(
-                "Order status updated from Kafka event. orderId={}, reserved={}, updater={}",
+                "Order status updated from Kafka event. orderId={}, reserved={}, inventoryProcessor={}, updater={}",
                 event.getOrderId(),
                 event.isReserved(),
+                inventoryProcessor,
                 instanceName
         );
     }

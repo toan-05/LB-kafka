@@ -10,6 +10,8 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.Instant;
 import java.util.stream.Collectors;
@@ -74,6 +76,20 @@ public class GlobalExceptionHandler {
                         HttpStatus.BAD_REQUEST,
                         ErrorCode.MALFORMED_REQUEST,
                         "Request body is missing or malformed",
+                        request.getRequestURI()
+                ));
+    }
+
+    @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
+    public ResponseEntity<ApiErrorResponse> handleEndpointNotFound(
+            Exception ex,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(errorResponse(
+                        HttpStatus.NOT_FOUND,
+                        ErrorCode.ENDPOINT_NOT_FOUND,
+                        "Endpoint not found",
                         request.getRequestURI()
                 ));
     }
