@@ -121,6 +121,13 @@ Services:
 - Kafka UI: `http://localhost:8080`
 - MySQL: `localhost:3306`
 
+Frontend dev origins allowed by default:
+
+- `http://localhost:3000`
+- `http://localhost:5173`
+
+Change `CORS_ALLOWED_ORIGINS` in `.env` if your frontend runs on a different origin.
+
 Stop the stack:
 
 ```bash
@@ -131,6 +138,21 @@ Remove database volume:
 
 ```bash
 docker compose down -v
+```
+
+Run this when migrations changed or when your local database was created from an older schema.
+
+Frontend base URL:
+
+```text
+http://localhost/api/v1
+```
+
+If you call app1/app2 directly instead of Nginx:
+
+```text
+http://localhost:8081/api/v1
+http://localhost:8082/api/v1
 ```
 
 ## Test

@@ -53,6 +53,8 @@ springdoc:
 
 app:
   instance-name: ${INSTANCE_NAME:${server.port}}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:5174,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:5174}
   kafka:
     order-created-topic: ${ORDER_CREATED_TOPIC:order-created}
     inventory-result-topic: ${INVENTORY_RESULT_TOPIC:inventory-result}
